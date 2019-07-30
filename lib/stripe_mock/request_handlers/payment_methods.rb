@@ -1,6 +1,6 @@
 module StripeMock
   module RequestHandlers
-    module PaymentIntents
+    module PaymentMethods
       ALLOWED_PARAMS = [:description, :metadata, :receipt_email, :shipping, :destination, :payment_method, :payment_method_types, :setup_future_usage, :transfer_data, :amount, :currency]
 
       def PaymentIntents.included(klass)
