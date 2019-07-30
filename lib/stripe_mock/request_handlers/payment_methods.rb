@@ -3,7 +3,7 @@ module StripeMock
     module PaymentMethods
       ALLOWED_PARAMS = [:description, :metadata, :receipt_email, :shipping, :destination, :payment_method, :payment_method_types, :setup_future_usage, :transfer_data, :amount, :currency]
 
-      def PaymentIntents.included(klass)
+      def PaymentMethods.included(klass)
         klass.add_handler 'post /v1/payment_methods',             :new_payment_method
         klass.add_handler 'get /v1/payment_methods/(.*)',         :retrive_payment_method
         klass.add_handler 'get /v1/payment_methods',              :list_payment_methods
@@ -46,7 +46,7 @@ module StripeMock
 
         if params[:customer]
           customer = assert_existence :customer, params[:customer], customers[params[:customer]]
-          payment_method.customer = customer[:id]
+          payment_method[:customer] = customer[:id]
         end
 
         payment_method
