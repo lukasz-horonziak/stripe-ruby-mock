@@ -17,22 +17,16 @@ module StripeMock
         id = new_id('pi')
 
         ensure_payment_intent_required_params(params)
-        status = case params[:amount]
-        when 3184 then 'requires_action'
-        when 3178 then 'requires_payment_method'
-        else
-          'succeeded'
-        end
-        last_payment_error = params[:amount] == 3178 ? last_payment_error_generator(code: 'card_declined', decline_code: 'insufficient_funds', message: 'Not enough funds.') : nil
+
         payment_intents[id] = Data.mock_payment_intent(
           params.merge(
             id: id,
-            status: status,
-            last_payment_error: last_payment_error
+            status: status(params)
           )
         )
 
-        payment_intents[id].clone
+        confirm_intent(payment_intents[id]) if params[:confirm]
+        payment_intents[id]
       end
 
       def update_payment_intent(route, method_url, params, headers)
@@ -77,8 +71,7 @@ module StripeMock
         route =~ method_url
         payment_intent = assert_existence :payment_intent, $1, payment_intents[$1]
 
-        payment_intent[:status] = 'succeeded'
-        payment_intent
+        confirm_intent(payment_intent)
       end
 
       def cancel_payment_intent(route, method_url, params, headers)
@@ -101,6 +94,37 @@ module StripeMock
         elsif non_positive_charge_amount?(params)
           raise Stripe::InvalidRequestError.new('Invalid positive integer', 'amount', http_status: 400)
         end
+      end
+
+      def confirm_intent(payment_intent)
+        charge = create_charge(payment_intent)
+
+        payment_intent[:charges][:total_count] += 1
+        payment_intent[:charges][:data] << charge
+        payment_intent[:status] = 'succeeded'
+        payment_intent
+      end
+
+      def status(params)
+        if params[:payment_method].present?
+          return 'requires_confirmation' if payment_methods[params[:payment_method]].present?
+          raise Stripe::InvalidRequestError.new("No such payment_method: #{params[:payment_method]}", '', http_status: 400)
+        else
+          'requires_payment_method'
+        end
+      end
+
+      def create_charge(payment_intent)
+        id = new_id('ch')
+        charges[id] = Data.mock_charge(
+          id: id,
+          customer: payment_intent[:customer],
+          amount: payment_intent[:amount],
+          payment_method: payment_intent[:payment_method],
+          payment_intent: payment_intent[:id],
+          paid: true
+        )
+        charges[id]
       end
 
       def non_integer_charge_amount?(params)
