@@ -21,7 +21,6 @@ module StripeMock
           StripeMock.instance.upsert_stripe_object(object, attributes)
         end
       end
-
     end
   end
 end
