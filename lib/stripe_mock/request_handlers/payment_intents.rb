@@ -15,12 +15,18 @@ module StripeMock
 
       def new_payment_intent(route, method_url, params, headers)
         id = new_id('pi')
+        secret = new_id('secret')
 
         ensure_payment_intent_required_params(params)
+
+        if params[:payment_method].blank? && customers[params[:customer]]
+          params[:payment_method] = customers[params[:customer]][:invoice_settings][:default_payment_method]
+        end
 
         payment_intents[id] = Data.mock_payment_intent(
           params.merge(
             id: id,
+            client_secret: "#{id}_#{secret}",
             status: status(params)
           )
         )
@@ -97,11 +103,20 @@ module StripeMock
       end
 
       def confirm_intent(payment_intent)
-        charge = create_charge(payment_intent)
+        require_authentication_cards = [3155, 3184, 3178, 3055] # or fingerprint
 
-        payment_intent[:charges][:total_count] += 1
-        payment_intent[:charges][:data] << charge
-        payment_intent[:status] = 'succeeded'
+        if payment_intent[:status] == 'requires_confirmation'
+          unless require_authentication_cards.include?(payment_methods[payment_intent[:payment_method]][:card][:last4])
+            charge = create_charge(payment_intent)
+
+            payment_intent[:charges][:total_count] += 1
+            payment_intent[:charges][:data] << charge
+            payment_intent[:status] = 'succeeded'
+          else
+            payment_intent[:status] = 'requires_action' # check status for not enought founds
+          end
+        end
+
         payment_intent
       end
 
@@ -133,57 +148,6 @@ module StripeMock
 
       def non_positive_charge_amount?(params)
         params[:amount] && params[:amount] < 1
-      end
-
-      def last_payment_error_generator(code:, message:, decline_code:)
-        {
-          code: code,
-          doc_url: "https://stripe.com/docs/error-codes/payment-intent-authentication-failure",
-          message: message,
-          decline_code: decline_code,
-          payment_method: {
-            id: "pm_1EwXFA2eZvKYlo2C0tlY091l",
-            object: "payment_method",
-            billing_details: {
-              address: {
-                city: nil,
-                country: nil,
-                line1: nil,
-                line2: nil,
-                postal_code: nil,
-                state: nil
-              },
-              email: nil,
-              name: "seller_08072019090000",
-              phone: nil
-            },
-            card: {
-              brand: "visa",
-              checks: {
-                address_line1_check: nil,
-                address_postal_code_check: nil,
-                cvc_check: "unchecked"
-              },
-              country: "US",
-              exp_month: 12,
-              exp_year: 2021,
-              fingerprint: "LQBhEmJnItuj3mxf",
-              funding: "credit",
-              generated_from: nil,
-              last4: "1629",
-              three_d_secure_usage: {
-                supported: true
-              },
-              wallet: nil
-            },
-            created: 1563208900,
-            customer: nil,
-            livemode: false,
-            metadata: {},
-            type: "card"
-          },
-          type: "invalid_request_error"
-        }
       end
     end
   end
