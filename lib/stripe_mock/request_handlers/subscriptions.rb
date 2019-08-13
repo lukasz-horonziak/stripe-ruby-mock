@@ -135,7 +135,13 @@ module StripeMock
 
         subscriptions[subscription[:id]] = subscription
         add_subscription_to_customer(customer, subscription)
+        # add invoice
 
+        invoice = Data.mock_invoice([Data.mock_line_item({ id: new_id('ii'), currency: subscription_plans.first[:currency], amount: subscription_plans.first[:amount], subscription: subscription[:id], plan: subscription_plans.first[:id] })], {id: new_id('in'), customer: params[:customer]})
+        payment_intent = subscription_payment_intent(invoice)
+        invoice[:payment_intent] = payment_intent[:id]
+        subscription[:latest_invoice] = invoice[:id]
+        invoices[invoice[:id]] = invoice
         subscriptions[subscription[:id]]
       end
 
@@ -291,6 +297,10 @@ module StripeMock
           message = "No such subscription: #{id}"
           raise Stripe::InvalidRequestError.new(message, 'subscription', http_status: 404)
         end
+      end
+
+      def subscription_payment_intent(invoice)
+        new_payment_intent(nil, nil, { customer: invoice[:customer], amount: invoice[:amount_due], currency: invoice[:currency], confirm: true }, nil)
       end
     end
   end
