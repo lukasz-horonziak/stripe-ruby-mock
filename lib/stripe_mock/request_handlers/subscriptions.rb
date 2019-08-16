@@ -266,6 +266,7 @@ module StripeMock
       # 2) is free
       # 3) has billing set to send invoice
       def verify_card_present(customer, plan, subscription, params={})
+        return if customer[:invoice_settings] && customer[:invoice_settings][:default_payment_method].present?
         return if customer[:default_source]
         return if customer[:trial_end]
         return if params[:trial_end]
