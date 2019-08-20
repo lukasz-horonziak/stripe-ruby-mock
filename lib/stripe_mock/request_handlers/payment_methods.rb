@@ -24,7 +24,7 @@ module StripeMock
       def retrive_payment_method(route, method_url, _params, _headers)
         route =~ method_url
 
-        assert_existence :payment_methods, $1, payment_methods[$1]
+        assert_existence :payment_method, $1, payment_methods[$1]
       end
 
       def list_payment_methods(_route, _method_url, params, _headers)
@@ -42,6 +42,7 @@ module StripeMock
 
       def attach_payment_method(route, method_url, params, headers)
         route =~ method_url
+
         payment_method = assert_existence :payment_method, $1, payment_methods[$1]
 
         if params[:customer]
@@ -53,6 +54,8 @@ module StripeMock
       end
 
       def detach_payment_method(route, method_url, params, headers)
+        route =~ method_url
+
         payment_method = assert_existence :payment_method, $1, payment_methods[$1]
         payment_method[:customer] = nil
 
@@ -60,10 +63,12 @@ module StripeMock
       end
 
       def update_payment_method(route, method_url, params, headers)
-        payment_method = assert_existence :payment_method, id, payment_methods[id]
+        route =~ method_url
+
+        payment_method = assert_existence :payment_method, $1, payment_methods[$1]
 
         if payment_method[:customer].nil?
-          raise Stripe::InvalidRequestError.new('You must save this PaymentMethod to a customer before you can update it.', http_status: 400)
+          raise Stripe::InvalidRequestError.new('You must save this PaymentMethod to a customer before you can update it.', nil, http_status: 400)
         end
 
         payment_method.merge!(params.slice(:billing_details, :card, :metadata))
@@ -73,9 +78,10 @@ module StripeMock
       private
 
       def ensure_payment_method_required_params(params)
-        require_param(:type) if params[:type].nil?
+        require_param(:type) unless params[:type]
+        require_param(:card) if params[:card].nil? && params[:type] == 'card'
 
-        raise Stripe::InvalidRequestError.new('Invalid type: must be one of card or card_present', http_status: 400) if invalid_type?(params[:type])
+        raise Stripe::InvalidRequestError.new('Invalid type: must be one of card or card_present', nil, http_status: 400) if invalid_type?(params[:type])
       end
 
       def invalid_type?(type)
