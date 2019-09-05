@@ -19,10 +19,6 @@ module StripeMock
 
         ensure_payment_intent_required_params(params)
 
-        if params[:payment_method].blank? && customers[params[:customer]]
-          params[:payment_method] = customers[params[:customer]][:invoice_settings][:default_payment_method]
-        end
-
         payment_intents[id] = Data.mock_payment_intent(
           params.merge(
             id: id,
@@ -105,7 +101,8 @@ module StripeMock
       end
 
       def confirm_intent(payment_intent)
-        require_authentication_cards = [3155, 3184, 3178, 3055] # or fingerprint
+        raise Stripe::InvalidRequestError.new("You cannot confirm this PaymentIntent because it's missing a payment method. To confirm the PaymentIntent with #{payment_intent[:customer]}, specify a payment method attached to this customer along with the customer ID.", '', http_status: 400) unless payment_intent[:payment_method]
+        require_authentication_cards = [3220, 3155, 3184, 3178, 3055] # or fingerprint
 
         if payment_intent[:status] == 'requires_confirmation'
           unless require_authentication_cards.include?(payment_methods[payment_intent[:payment_method]][:card][:last4])
@@ -123,8 +120,8 @@ module StripeMock
       end
 
       def status(params)
-        if params[:payment_method].present?
-          return 'requires_confirmation' if payment_methods[params[:payment_method]].present?
+        if params[:payment_method]
+          return 'requires_confirmation' if payment_methods[params[:payment_method]]
           raise Stripe::InvalidRequestError.new("No such payment_method: #{params[:payment_method]}", '', http_status: 400)
         else
           'requires_payment_method'
