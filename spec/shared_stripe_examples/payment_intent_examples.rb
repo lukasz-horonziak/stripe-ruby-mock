@@ -1,5 +1,4 @@
 require 'spec_helper'
-require 'pry'
 
 shared_examples 'PaymentIntent API' do
   let(:payment_method) { Stripe::PaymentMethod.create({ type: 'card', card: card }) }
