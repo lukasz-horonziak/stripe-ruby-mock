@@ -1,8 +1,9 @@
 require 'spec_helper'
+require 'pry'
 
 shared_examples 'PaymentIntent API' do
 
-  it "creates a succeeded stripe payment_intent" do
+  it "creates a succeeded stripe payment_intent", live: true do
     payment_intent = Stripe::PaymentIntent.create(amount:  100, currency: "usd")
 
     expect(payment_intent.id).to match(/^test_pi/)
