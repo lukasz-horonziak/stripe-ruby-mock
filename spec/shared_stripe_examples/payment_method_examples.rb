@@ -1,5 +1,4 @@
 require 'spec_helper'
-require 'pry'
 
 shared_examples 'PaymentMethod API' do
   let(:card) { { number: '4242424242424242', exp_month: 7, exp_year: 2022, cvc: '314' } }
