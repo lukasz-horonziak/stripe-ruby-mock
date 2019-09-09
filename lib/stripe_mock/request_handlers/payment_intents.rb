@@ -19,13 +19,10 @@ module StripeMock
 
         ensure_payment_intent_required_params(params)
 
-<<<<<<< HEAD
         if params[:payment_method].blank? && customers[params[:customer]]
           params[:payment_method] = customers[params[:customer]][:invoice_settings][:default_payment_method]
         end
 
-=======
->>>>>>> refactor_payment_intent_and_add_payment_methods
         payment_intents[id] = Data.mock_payment_intent(
           params.merge(
             id: id,
@@ -98,8 +95,6 @@ module StripeMock
           require_param(:amount)
         elsif params[:currency].nil?
           require_param(:currency)
-        elsif params[:customer].nil?
-          require_param(:customer)
         elsif non_integer_charge_amount?(params)
           raise Stripe::InvalidRequestError.new("Invalid integer: #{params[:amount]}", 'amount', http_status: 400)
         elsif non_positive_charge_amount?(params)
@@ -108,7 +103,6 @@ module StripeMock
       end
 
       def confirm_intent(payment_intent)
-        raise Stripe::InvalidRequestError.new("You cannot confirm this PaymentIntent because it's missing a payment method. To confirm the PaymentIntent with #{payment_intent[:customer]}, specify a payment method attached to this customer along with the customer ID.", '', http_status: 400) unless payment_intent[:payment_method]
         require_authentication_cards = [3220, 3155, 3184, 3178, 3055] # or fingerprint
 
         if payment_intent[:status] == 'requires_confirmation'
@@ -118,6 +112,7 @@ module StripeMock
             payment_intent[:charges][:total_count] += 1
             payment_intent[:charges][:data] << charge
             payment_intent[:status] = 'succeeded'
+            invoices[payment_intent[:invoice]].merge!(paid: true) if payment_intent[:invoice] && !invoices[payment_intent[:invoice]].nil?
           else
             payment_intent[:status] = 'requires_action' # check status for not enought founds
           end
@@ -127,8 +122,8 @@ module StripeMock
       end
 
       def status(params)
-        if params[:payment_method]
-          return 'requires_confirmation' if payment_methods[params[:payment_method]]
+        if params[:payment_method].present?
+          return 'requires_confirmation' if payment_methods[params[:payment_method]].present?
           raise Stripe::InvalidRequestError.new("No such payment_method: #{params[:payment_method]}", '', http_status: 400)
         else
           'requires_payment_method'
